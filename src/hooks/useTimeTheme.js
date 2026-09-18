@@ -26,13 +26,15 @@ function getTimeTheme() {
   return "night";
 }
 
+
 export function useTimeTheme() {
   const [timeTheme, setTimeTheme] = useState(getTimeTheme);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      const now = new Date();
+      setCurrentTime(now);
       setTimeTheme(getTimeTheme());
     }, 60000);
 
@@ -42,5 +44,6 @@ export function useTimeTheme() {
   return {
     timeTheme,
     currentTime,
+   
   };
 }

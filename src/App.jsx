@@ -2,6 +2,7 @@ import "./App.css";
 import { MapPin } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import HeroSection from "./components/HeroSection";
+import DashboardSection from "./components/Dashboard";
 
 function App() {
   return (
@@ -29,7 +30,7 @@ function App() {
         </header>
 
         <HeroSection />
-
+        <DashboardSection />
       </main>
 
     </div>

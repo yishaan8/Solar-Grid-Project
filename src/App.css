@@ -268,71 +268,74 @@ input {
 
 
 /* =========================================================
-   TIME THEMES
+   DYNAMIC WEATHER + TIME BACKGROUNDS
 ========================================================= */
 
 .hero-dawn {
   background:
     linear-gradient(
-      110deg,
-      rgba(53, 54, 38, 0.42),
-      rgba(232, 153, 87, 0.18)
+      90deg,
+      rgba(20, 25, 30, 0.35),
+      rgba(20, 25, 30, 0.05)
     ),
-    linear-gradient(135deg, #354235, #d98f62, #f3c582);
+    url("/src/assets/backgrounds/sunrise.jpg")
+    center / cover no-repeat;
 }
 
 .hero-morning {
-  background: linear-gradient(
-    120deg,
-    #a1da97 0%,
-    #f3d588 48%,
-    #fcb750 100%
-  );
+  background:
+    linear-gradient(
+      90deg,
+      rgba(20, 35, 25, 0.30),
+      rgba(255, 180, 80, 0.05)
+    ),
+    url("/src/assets/backgrounds/day.jpg")
+    center / cover no-repeat;
 }
 
 .hero-afternoon {
   background:
     linear-gradient(
-      110deg,
-      rgba(43, 67, 61, 0.38),
-      rgba(247, 201, 112, 0.08)
+      90deg,
+      rgba(20, 35, 40, 0.30),
+      rgba(255, 200, 100, 0.05)
     ),
-    linear-gradient(135deg, #5c8379, #d8bd80, #e8d09d);
+    url("/src/assets/backgrounds/day.jpg")
+    center / cover no-repeat;
 }
 
 .hero-evening {
   background:
     linear-gradient(
-      110deg,
-      rgba(42, 42, 54, 0.52),
-      rgba(215, 113, 73, 0.12)
+      90deg,
+      rgba(25, 25, 45, 0.30),
+      rgba(230, 120, 70, 0.10)
     ),
-    linear-gradient(135deg, #39465a, #a86559, #e5a26d);
+    url("/src/assets/backgrounds/sunset.png")
+    center / cover no-repeat;
 }
 
 .hero-dusk {
   background:
     linear-gradient(
-      110deg,
-      rgba(20, 28, 47, 0.6),
-      rgba(117, 66, 72, 0.18)
+      90deg,
+      rgba(15, 25, 45, 0.45),
+      rgba(70, 45, 75, 0.15)
     ),
-    linear-gradient(135deg, #1e3047, #694f65, #b96d63);
+    url("/src/assets/backgrounds/cloudy.png")
+    center / cover no-repeat;
 }
 
 .hero-night {
   background:
-    radial-gradient(
-      circle at 76% 22%,
-      rgba(255, 255, 255, 0.17),
-      transparent 8%
-    ),
     linear-gradient(
-      115deg,
-      rgba(6, 17, 34, 0.75),
-      rgba(18, 25, 48, 0.8)
+      90deg,
+      rgba(5, 12, 30, 0.45),
+      rgba(10, 20, 45, 0.25)
     ),
-    linear-gradient(135deg, #08182c, #18243d, #24233c);
+    url("/src/assets/backgrounds/night.png")
+    center / cover no-repeat;
+    color: #e3e2dc;
 }
 
 

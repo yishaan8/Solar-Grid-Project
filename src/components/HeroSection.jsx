@@ -1,29 +1,118 @@
 import { MapPin, ChevronDown, CheckCircle2 } from "lucide-react";
 import { useTimeTheme } from "../hooks/useTimeTheme";
+import { useEffect, useState } from "react";
+const themeContent = {
+  dawn: {
+    greeting: "GOOD MORNING.",
+    tagline: (
+      <>
+        THE SUN RISES.
+        <br />
+        AND SO DOES A CLEANER TOMORROW.
+      </>
+    ),
+    quote: (
+      <>
+        Every sunrise
+        <br />
+        is potential energy.
+      </>
+    )
+  },
 
+  morning: {
+    greeting: "GOOD MORNING.",
+    tagline: (
+      <>
+        THE SUN RISES.
+        <br />
+        AND SO DOES A CLEANER TOMORROW.
+      </>
+    ),
+    quote: (
+      <>
+        More sunlight.
+        <br />
+        More possibilities.
+      </>
+    )
+  },
+
+  afternoon: {
+    greeting: "GOOD AFTERNOON.",
+    tagline: (
+      <>
+        THE SUN IS WORKING.
+        <br />
+        SO IS YOUR GRID.
+      </>
+    ),
+    quote: (
+      <>
+        Every ray
+        <br />
+        becomes energy.
+      </>
+    )
+  },
+
+  evening: {
+    greeting: "GOOD EVENING.",
+    tagline: (
+      <>
+        A CLEANER TOMORROW
+        <br />
+        IS ALWAYS WITHIN REACH.
+      </>
+    ),
+    quote: (
+      <>
+        Every sunset
+        <br />
+        marks another day powered.
+      </>
+    )
+  },
+
+  dusk: {
+    greeting: "GOOD EVENING.",
+    tagline: (
+      <>
+        THE SUN SETS.
+        <br />
+        THE GRID KEEPS GOING.
+      </>
+    ),
+    quote: (
+      <>
+        Different skies.
+        <br />
+        Same purpose.
+      </>
+    )
+  },
+
+  night: {
+    greeting: "GOOD NIGHT.",
+    tagline: (
+      <>
+        THE SUN RESTS.
+        <br />
+        THE GRID DOESN'T.
+      </>
+    ),
+    quote: (
+      <>
+        Every sunrise
+        <br />
+        is potential energy.
+      </>
+    )
+  }
+};
 function HeroSection() {
   const { timeTheme, currentTime } = useTimeTheme();
-
-  const hour = currentTime.getHours();
-
-  let greeting = "GOOD MORNING.";
-  let headline = "THE SUN RISES.";
-  let subHeadline = "AND SO DOES CLEAN ENERGY.";
-
-  if (hour >= 11 && hour < 15) {
-    greeting = "GOOD AFTERNOON.";
-    headline = "PEAK SUNLIGHT.";
-    subHeadline = "PEAK GENERATION.";
-  } else if (hour >= 15 && hour < 20) {
-    greeting = "GOOD EVENING.";
-    headline = "THE DAY FADES.";
-    subHeadline = "CLEAN ENERGY LIVES ON.";
-  } else if (hour >= 20 || hour < 5) {
-    greeting = "GOOD NIGHT.";
-    headline = "THE SUN RESTS.";
-    subHeadline = "THE GRID DOESN'T.";
-  }
-
+ 
   const formattedTime = currentTime.toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
@@ -42,22 +131,18 @@ function HeroSection() {
       <div className="hero-top">
 
         <div>
-          <p className="greeting">{greeting}</p>
+          <p className="greeting">{themeContent[timeTheme].greeting}</p>
 
           <h1>PARIJA<span>_</span></h1>
 
           <p className="hero-tagline">
-            {headline}
-            <br />
-            {subHeadline}
+            {themeContent[timeTheme].tagline}
           </p>
         </div>
 
         <div className="quote-card">
           <span>"</span>
-          Every sunrise
-          <br />
-          is potential energy.
+          {themeContent[timeTheme].quote}
         </div>
 
       </div>

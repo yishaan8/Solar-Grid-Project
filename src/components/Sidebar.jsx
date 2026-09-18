@@ -23,7 +23,6 @@ function Sidebar() {
       </div>
 
       <div className="module">
-        MODULE 01
         <span>Asset Intelligence</span>
       </div>
 
