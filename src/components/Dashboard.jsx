@@ -17,10 +17,6 @@ function DashboardSection() {
   return (
     <section className="dashboard-section">
 
-      {/* =====================================================
-          TOP ROW
-      ===================================================== */}
-
       <div className="dashboard-grid top-grid">
 
         {/* TODAY'S GENERATION */}
