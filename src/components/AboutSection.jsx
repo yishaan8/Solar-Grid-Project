@@ -52,20 +52,20 @@ function AboutSection({ onEnter }) {
     <section className="about-story" id="about">
       <div className="story-intro">
         <span className="story-eyebrow">
-          INTRODUCING SOLARGRID INTELLIGENCE
+          SOLAR PLANT MONITORING &amp; PERFORMANCE ANALYTICS
         </span>
 
         <h2>
           The sun provides the power.
           <br />
-          <span>We provide the intelligence.</span>
+          <span>We provide the analytics.</span>
         </h2>
 
         <p>
           Solar energy is the future. Understanding it better is
           how we move forward. SolarGrid brings generation data,
-          performance analytics, anomaly detection, and forecasting
-          together in one intelligent platform.
+          performance metrics, and power forecasting
+          together in one unified platform.
         </p>
 
         <a className="story-scroll" href="#monitor">

@@ -1,118 +1,12 @@
-import { MapPin, ChevronDown, CheckCircle2 } from "lucide-react";
+
+import { MapPin } from "lucide-react";
 import { useTimeTheme } from "../hooks/useTimeTheme";
-import { useEffect, useState } from "react";
-const themeContent = {
-  dawn: {
-    greeting: "GOOD MORNING.",
-    tagline: (
-      <>
-        THE SUN RISES.
-        <br />
-        AND SO DOES A CLEANER TOMORROW.
-      </>
-    ),
-    quote: (
-      <>
-        Every sunrise
-        <br />
-        is potential energy.
-      </>
-    )
-  },
+import { useDashboard } from "../hooks/useDashboard";
 
-  morning: {
-    greeting: "GOOD MORNING.",
-    tagline: (
-      <>
-        THE SUN RISES.
-        <br />
-        AND SO DOES A CLEANER TOMORROW.
-      </>
-    ),
-    quote: (
-      <>
-        More sunlight.
-        <br />
-        More possibilities.
-      </>
-    )
-  },
-
-  afternoon: {
-    greeting: "GOOD AFTERNOON.",
-    tagline: (
-      <>
-        THE SUN IS WORKING.
-        <br />
-        SO IS YOUR GRID.
-      </>
-    ),
-    quote: (
-      <>
-        Every ray
-        <br />
-        becomes energy.
-      </>
-    )
-  },
-
-  evening: {
-    greeting: "GOOD EVENING.",
-    tagline: (
-      <>
-        A CLEANER TOMORROW
-        <br />
-        IS ALWAYS WITHIN REACH.
-      </>
-    ),
-    quote: (
-      <>
-        Every sunset
-        <br />
-        marks another day powered.
-      </>
-    )
-  },
-
-  dusk: {
-    greeting: "GOOD EVENING.",
-    tagline: (
-      <>
-        THE SUN SETS.
-        <br />
-        THE GRID KEEPS GOING.
-      </>
-    ),
-    quote: (
-      <>
-        Different skies.
-        <br />
-        Same purpose.
-      </>
-    )
-  },
-
-  night: {
-    greeting: "GOOD NIGHT.",
-    tagline: (
-      <>
-        THE SUN RESTS.
-        <br />
-        THE GRID DOESN'T.
-      </>
-    ),
-    quote: (
-      <>
-        Every sunrise
-        <br />
-        is potential energy.
-      </>
-    )
-  }
-};
-function HeroSection() {
+function HeroSection({ selectedPlant = 1 }) {
   const { timeTheme, currentTime } = useTimeTheme();
- 
+  const { dashboard } = useDashboard(selectedPlant);
+
   const formattedTime = currentTime.toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
@@ -125,90 +19,113 @@ function HeroSection() {
     year: "numeric",
   });
 
+  const plantTitle =
+    selectedPlant === 2 ? "Solar Farm B" : "Solar Farm A";
+
+  // Read values from the selected plant's dashboard data.
+  const activePlant =
+    dashboard?.active_plant ?? dashboard?.plant1 ?? {};
+
+  const weather = activePlant.latest_weather;
+  const genChart = activePlant.generation_chart ?? [];
+
+  // Find the maximum power in the available chart data.
+  const validPowerReadings = genChart
+    .map((item) => Number(item.ac_power))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  const peakPower =
+    validPowerReadings.length > 0
+      ? Math.max(...validPowerReadings)
+      : null;
+
+  // These values are only displayed when data is available.
+  const formatPower = (power) => {
+    if (power == null) return "—";
+    return power >= 1000
+      ? `${(power / 1000).toFixed(1)} MW`
+      : `${Math.round(power)} kW`;
+  };
+
+  const irradiance =
+    weather?.irradiation != null &&
+    Number.isFinite(Number(weather.irradiation))
+      ? `${(Number(weather.irradiation) * 1000).toFixed(0)} W/m²`
+      : "—";
+
+  const panelTemp =
+    weather?.module_temperature != null &&
+    Number.isFinite(Number(weather.module_temperature))
+      ? `${Number(weather.module_temperature).toFixed(1)}°C`
+      : "—";
+
   return (
     <section className={`hero hero-${timeTheme}`}>
-
       <div className="hero-top">
-
         <div>
-          <p className="greeting">{themeContent[timeTheme].greeting}</p>
+          <p className="greeting">
+            {timeTheme === "night"
+              ? "Good evening"
+              : timeTheme === "dawn" ||
+                  timeTheme === "morning"
+                ? "Good morning"
+                : timeTheme === "afternoon"
+                  ? "Good afternoon"
+                  : "Good evening"}
+          </p>
 
-          <h1>PARIJA<span>_</span></h1>
+          <h1>Solar farm overview</h1>
 
           <p className="hero-tagline">
-            {themeContent[timeTheme].tagline}
+            Understand your generation at a glance.
           </p>
         </div>
-
-        <div className="quote-card">
-          <span>"</span>
-          {themeContent[timeTheme].quote}
-        </div>
-
       </div>
 
       <div className="hero-bottom">
-
         <div className="plant-card">
-
           <div className="plant-header">
-
-            <div className="plant-icon">
-              ☀
-            </div>
+            <div className="plant-icon">☀</div>
 
             <div>
-              <h3>Solar Farm A</h3>
-
+              <h3>{plantTitle}</h3>
               <p>
-                <MapPin size={11} />
-                Bengaluru, KA
+                <MapPin size={12} />
+                Karnataka, India
               </p>
             </div>
-
-            <ChevronDown size={16} />
-
           </div>
 
           <div className="status">
-            <CheckCircle2 size={14} />
-            All Systems Normal
+            Historical data · Demo mode
           </div>
 
           <div className="plant-stats">
-
             <div>
               <span>⚡</span>
-              <strong>12.4 MW</strong>
-              <small>Current Generation</small>
-              <em>↑ 5.2%</em>
+              <strong>{formatPower(peakPower)}</strong>
+              <small>Peak in available data</small>
             </div>
 
             <div>
-              <span>🌿</span>
-              <strong>92%</strong>
-              <small>Efficiency</small>
-              <em>↑ 1.4%</em>
+              <span>☀</span>
+              <strong>{irradiance}</strong>
+              <small>Solar irradiance</small>
             </div>
 
             <div>
               <span>🌡</span>
-              <strong>28°C</strong>
-              <small>Panel Temperature</small>
-              <em>Stable</em>
+              <strong>{panelTemp}</strong>
+              <small>Module temperature</small>
             </div>
-
           </div>
-
         </div>
-
       </div>
 
       <div className="hero-meta">
         <span>{formattedDate}</span>
         <span>{formattedTime}</span>
       </div>
-
     </section>
   );
 }

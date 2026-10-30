@@ -42,8 +42,8 @@ function EnteringDashboard({onEnter}) {
       </nav>
 
       <div className="entry-content">
-        <h1>SolarGrid Intelligence</h1>
-        <p>Powering a smarter, cleaner future.</p>
+        <h1>SolarGrid</h1>
+        <p>Solar Plant Monitoring &amp; Performance Analytics</p>
 
         <button className="cta-button" onClick={onEnter}>
           Enter Dashboard →

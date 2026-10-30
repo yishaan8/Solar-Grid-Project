@@ -1,88 +1,70 @@
 import {
   LayoutDashboard,
   Sun,
-  Cpu,
   Activity,
-  AlertTriangle,
-  Wrench,
+  TrendingUp,
   FileText,
-  Settings,
+  Leaf
 } from "lucide-react";
 
-function Sidebar() {
+function Sidebar({ activeTab = "overview", onSelectTab }) {
+  const handleNav = (tab) => {
+    if (onSelectTab) onSelectTab(tab);
+  };
+
+  const menuItems = [
+    { id: "overview", label: "Overview", Icon: LayoutDashboard },
+    { id: "farms", label: "Solar Farms", Icon: Sun },
+    { id: "performance", label: "Performance", Icon: Activity },
+    { id: "forecast", label: "Forecast", Icon: TrendingUp },
+    { id: "reports", label: "Reports", Icon: FileText },
+    { id: "settings", label: "Settings", Icon: FileText },
+  ];
+
   return (
     <aside className="sidebar">
-
       <div className="logo">
         <div className="logo-icon">☀</div>
-
         <div>
-          <h2>SOLARHUB</h2>
-          <span>Brighter Tomorrows</span>
+          <h2>SOLARGRID</h2>
+          <span>Solar Farm Monitoring</span>
         </div>
       </div>
 
       <div className="module">
-        <span>Asset Intelligence</span>
+        <span>PLANT MONITORING</span>
       </div>
 
       <nav>
-
-        <div className="menu-item active">
-          <LayoutDashboard size={18} />
-          <span>Overview</span>
-        </div>
-
-        <div className="menu-item">
-          <Sun size={18} />
-          <span>Solar Farms</span>
-        </div>
-
-        <div className="menu-item">
-          <Cpu size={18} />
-          <span>Equipment</span>
-        </div>
-
-        <div className="menu-item">
-          <Activity size={18} />
-          <span>Performance</span>
-        </div>
-
-        <div className="menu-item">
-          <AlertTriangle size={18} />
-          <span>AI Insights</span>
-        </div>
-
-        <div className="menu-item">
-          <Wrench size={18} />
-          <span>Maintenance</span>
-        </div>
-
-        <div className="menu-item">
-          <FileText size={18} />
-          <span>Reports</span>
-        </div>
-
+        {menuItems.map(({ id, label, Icon }) => (
+          <div
+            key={id}
+            className={`menu-item ${activeTab === id ? "active" : ""}`}
+            onClick={() => handleNav(id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleNav(id);
+              }
+            }}
+          >
+            <Icon size={18} />
+            <span>{label}</span>
+          </div>
+        ))}
       </nav>
 
       <div className="sidebar-bottom">
-
         <div className="clean-energy">
-          <span>🌿</span>
-
+          <span><Leaf size={18} /></span>
           <div>
-            <strong>Clean Energy</strong>
-            <small>Smarter Decisions</small>
+            <strong>SolarGrid</strong>
+            <small>Monitor. Understand. Improve.</small>
           </div>
         </div>
-
-        <div className="menu-item">
-          <Settings size={18} />
-          <span>Settings</span>
-        </div>
-
       </div>
-
     </aside>
   );
 }

@@ -1,0 +1,471 @@
+
+/* ==========================================
+   SOLARGRID — SOLAR FARMS PAGE
+========================================== */
+
+.farms-page {
+  width: 100%;
+  padding: 12px 0 40px;
+  color: var(--text-primary, #172033);
+}
+
+/* PAGE HEADER */
+
+.farms-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.farms-eyebrow {
+  color: #159765;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.farms-page-header h2 {
+  margin: 7px 0 5px;
+  color: var(--text-primary, #172033);
+  font-size: clamp(25px, 3vw, 31px);
+  font-weight: 750;
+  letter-spacing: -1px;
+}
+
+.farms-page-header p {
+  margin: 0;
+  color: var(--text-muted, #8793a5);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.farms-count {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  border: 1px solid var(--border-color, #e5eaf1);
+  border-radius: 11px;
+  background: var(--bg-card, #fff);
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.farms-count svg {
+  color: #159765;
+}
+
+/* HISTORICAL NOTICE */
+
+.farms-notice {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 17px;
+  margin-bottom: 20px;
+  border: 1px solid #d7eddf;
+  border-radius: 12px;
+  background: #eff8f2;
+  color: #176b48;
+}
+
+.farms-notice > svg {
+  flex-shrink: 0;
+}
+
+.farms-notice div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.farms-notice strong {
+  font-size: 12px;
+}
+
+.farms-notice span {
+  color: #5e806d;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* FARM LIST */
+
+.farms-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* FARM CARD */
+
+.farm-card {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e5eaf1);
+  border-radius: 17px;
+  box-shadow: 0 4px 16px rgba(20, 35, 60, .04);
+  cursor: pointer;
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease,
+    border-color .2s ease;
+}
+
+.farm-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(20, 35, 60, .08);
+}
+
+.farm-card.selected {
+  border-color: #159765;
+  box-shadow: 0 0 0 1px rgba(21, 151, 101, .12),
+    0 7px 20px rgba(21, 151, 101, .07);
+}
+
+.farm-card.blue.selected {
+  border-color: #6385e8;
+}
+
+/* FARM IDENTITY */
+
+.farm-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.farm-identity {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.farm-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: #eaf7ef;
+  color: #159765;
+}
+
+.farm-card.blue .farm-icon {
+  background: #edf3ff;
+  color: #6385e8;
+}
+
+.farm-plant-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-muted, #8793a5);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+
+.farm-identity h3 {
+  margin: 0 0 6px;
+  color: var(--text-primary, #172033);
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.farm-location {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted, #8793a5);
+  font-size: 11px;
+}
+
+.farm-selection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color, #e5eaf1);
+  border-radius: 20px;
+  background: var(--bg-card-subtle, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.farm-selection-badge.selected-badge {
+  border-color: #d2ebdc;
+  background: #eff8f2;
+  color: #168452;
+}
+
+/* DESCRIPTION */
+
+.farm-description {
+  min-height: 58px;
+  margin: 0 0 17px;
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* DATASET BOX */
+
+.farm-dataset-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 17px;
+  border: 1px solid var(--border-color, #e5eaf1);
+  border-radius: 12px;
+  background: var(--bg-card-subtle, #f8fafc);
+}
+
+.farm-dataset-icon {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: #eaf7ef;
+  color: #159765;
+}
+
+.farm-card.blue .farm-dataset-icon {
+  background: #edf3ff;
+  color: #6385e8;
+}
+
+.farm-dataset-box div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.farm-dataset-box span {
+  color: var(--text-muted, #8793a5);
+  font-size: 10px;
+}
+
+.farm-dataset-box strong {
+  color: var(--text-primary, #172033);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* FEATURES */
+
+.farm-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 14px;
+  padding-bottom: 17px;
+}
+
+.farm-features span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary, #64748b);
+  font-size: 10px;
+}
+
+.farm-features svg {
+  color: #159765;
+  flex-shrink: 0;
+}
+
+/* MODEL STATUS */
+
+.farm-model-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px;
+  margin-top: auto;
+  border: 1px solid #d7eddf;
+  border-radius: 11px;
+  background: #f1f9f4;
+}
+
+.farm-model-status.model-limited {
+  border-color: #f0dfc4;
+  background: #fff9ef;
+}
+
+.farm-model-icon {
+  flex-shrink: 0;
+  color: #159765;
+}
+
+.model-limited .farm-model-icon {
+  color: #bd812c;
+}
+
+.farm-model-status > div:last-child {
+  min-width: 0;
+}
+
+.farm-model-status strong {
+  display: block;
+  color: #176b48;
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.farm-model-status.model-limited strong {
+  color: #99651f;
+}
+
+.farm-model-status p {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* CARD FOOTER */
+
+.farm-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 17px;
+  margin-top: 17px;
+  border-top: 1px solid var(--border-color, #e5eaf1);
+}
+
+.farm-data-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted, #8793a5);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.farm-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #159765;
+}
+
+.farm-open-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid #159765;
+  border-radius: 9px;
+  background: #159765;
+  color: white;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.farm-open-button:hover {
+  background: #117b53;
+  border-color: #117b53;
+  transform: translateX(2px);
+}
+
+/* INFORMATION CARD */
+
+.farms-info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 19px;
+  margin-top: 20px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e5eaf1);
+  border-radius: 15px;
+}
+
+.farms-info-icon {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: #edf4ff;
+  color: #477ed4;
+}
+
+.farms-info-card h3 {
+  margin: 1px 0 6px;
+  color: var(--text-primary, #172033);
+  font-size: 13px;
+}
+
+.farms-info-card p {
+  max-width: 850px;
+  margin: 0;
+  color: var(--text-muted, #8793a5);
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1050px) {
+  .farms-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .farms-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .farms-card-header,
+  .farm-card-header {
+    flex-wrap: wrap;
+  }
+
+  .farm-card {
+    padding: 17px;
+  }
+
+  .farm-selection-badge {
+    margin-left: 60px;
+  }
+
+  .farm-card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .farm-open-button {
+    width: 100%;
+  }
+
+  .farms-notice {
+    align-items: flex-start;
+  }
+}
