@@ -1,6 +1,8 @@
 import math
 import random
 from datetime import datetime, timedelta, timezone
+
+
 def generate_telemetry(capacity_kw):
     now = datetime.now().astimezone()
     hour = now.hour + now.minute / 60
@@ -34,9 +36,11 @@ def generate_telemetry(capacity_kw):
         "source": "simulated"
     }
 
+
 def generate_day_telemetry(capacity_kw, installation_id, user_id, date=None):
     if date is None:
         date = datetime.now().date()
+
     readings = []
 
     for interval in range(96):
@@ -46,7 +50,6 @@ def generate_day_telemetry(capacity_kw, installation_id, user_id, date=None):
         ) + timedelta(minutes=15 * interval)
 
         hour = timestamp.hour + timestamp.minute / 60
-
         sunrise = 6
         sunset = 18
 
@@ -65,7 +68,6 @@ def generate_day_telemetry(capacity_kw, installation_id, user_id, date=None):
         ambient_temperature = random.uniform(24, 36)
         module_temperature = ambient_temperature + irradiance * 0.025
         performance_ratio = random.uniform(0.78, 0.92)
-
         power_kw = capacity_kw * (irradiance / 1000) * performance_ratio
 
         readings.append({

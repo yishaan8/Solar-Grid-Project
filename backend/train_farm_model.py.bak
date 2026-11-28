@@ -1,0 +1,141 @@
+import json
+from pathlib import Path
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from farm_data_service import load_validated_farm_data
+
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "models"
+MODEL_DIR.mkdir(exist_ok=True)
+
+FEATURES = [
+    "IRRADIATION",
+    "AMBIENT_TEMPERATURE",
+    "MODULE_TEMPERATURE",
+    "TIME_SIN",
+    "TIME_COS",
+    "TEMP_DIFF",
+    "IRR_TEMP_INTERACTION",
+    "IRR_TEMP_DIFF",
+]
+
+
+def add_features(frame: pd.DataFrame) -> pd.DataFrame:
+    result = frame.copy()
+    minutes = result["DATE_TIME"].dt.hour * 60 + result["DATE_TIME"].dt.minute
+    result["TEMP_DIFF"] = result["MODULE_TEMPERATURE"] - result["AMBIENT_TEMPERATURE"]
+    result["TIME_SIN"] = np.sin(2 * np.pi * minutes / 1440)
+    result["TIME_COS"] = np.cos(2 * np.pi * minutes / 1440)
+    result["IRR_TEMP_INTERACTION"] = result["IRRADIATION"] * result["MODULE_TEMPERATURE"]
+    result["IRR_TEMP_DIFF"] = result["IRRADIATION"] * result["TEMP_DIFF"]
+    return result.replace([np.inf, -np.inf], np.nan).dropna(subset=FEATURES + ["AC_POWER"])
+
+
+def evaluate(actual, predicted, mask=None):
+    if mask is not None:
+        actual = actual[mask]
+        predicted = predicted[mask]
+    if len(actual) == 0:
+        return {"mae": None, "rmse": None, "r2": None, "records": 0}
+    return {
+        "mae": float(mean_absolute_error(actual, predicted)),
+        "rmse": float(np.sqrt(mean_squared_error(actual, predicted))),
+        "r2": float(r2_score(actual, predicted)) if len(actual) > 1 else None,
+        "records": int(len(actual)),
+    }
+
+
+plant1_raw, plant1_coverage = load_validated_farm_data(1)
+plant2_raw, plant2_coverage = load_validated_farm_data(2)
+plant1 = add_features(plant1_raw)
+plant2 = add_features(plant2_raw)
+
+if len(plant1) < 10:
+    raise RuntimeError(f"Not enough complete Plant 1 records to train: {len(plant1)}")
+
+def train_one_plant(plant_id, data):
+    if len(data) < 10:
+        raise RuntimeError(
+            f"Not enough complete records for Plant {plant_id}: {len(data)}"
+        )
+
+    split_index = int(len(data) * 0.8)
+    train_data = data.iloc[:split_index].copy()
+    test_data = data.iloc[split_index:].copy()
+
+    model = RandomForestRegressor(
+        n_estimators=300,
+        max_depth=None,
+        min_samples_leaf=2,
+        random_state=42,
+        n_jobs=-1,
+    )
+    model.fit(train_data[FEATURES], train_data["AC_POWER"])
+
+    predictions = np.maximum(model.predict(test_data[FEATURES]), 0)
+    day_mask = test_data["IRRADIATION"].to_numpy() > 0.05
+
+    results = test_data[
+        [
+            "DATE_TIME",
+            "AC_POWER",
+            "IRRADIATION",
+            "AMBIENT_TEMPERATURE",
+            "MODULE_TEMPERATURE",
+        ]
+    ].copy()
+    results["EXPECTED_POWER"] = predictions
+    results["RESIDUAL"] = results["AC_POWER"] - results["EXPECTED_POWER"]
+    results["ABS_ERROR"] = results["RESIDUAL"].abs()
+
+    joblib.dump(
+        model,
+        MODEL_DIR / f"farm_plant{plant_id}_random_forest.joblib",
+    )
+    results.to_csv(
+        MODEL_DIR / f"farm_plant{plant_id}_test_results.csv",
+        index=False,
+    )
+
+    return {
+        "plant": plant_id,
+        "training_records": int(len(train_data)),
+        "test_records": int(len(test_data)),
+        "overall": evaluate(test_data["AC_POWER"].to_numpy(), predictions),
+        "daylight": evaluate(
+            test_data["AC_POWER"].to_numpy(),
+            predictions,
+            day_mask,
+        ),
+    }
+
+
+plant1_metrics = train_one_plant(1, plant1)
+plant2_metrics = train_one_plant(2, plant2)
+
+with open(MODEL_DIR / "farm_features.json", "w", encoding="utf-8") as file:
+    json.dump(FEATURES, file, indent=2)
+
+metrics = {
+    "model": "Farm-level Random Forest",
+    "model_scope": "Plant-wide AC_POWER aggregated from all 22 inverters",
+    "plant1": plant1_metrics,
+    "plant2": plant2_metrics,
+    "plant1_data_coverage": plant1_coverage,
+    "plant2_data_coverage": plant2_coverage,
+    "note": (
+        "Each plant has its own chronological 80/20 holdout. "
+        "These are historical holdout results, not future-performance guarantees."
+    ),
+}
+
+with open(MODEL_DIR / "farm_metrics.json", "w", encoding="utf-8") as file:
+    json.dump(metrics, file, indent=2)
+
+print("PLANT 1 METRICS:", json.dumps(plant1_metrics, indent=2))
+print("PLANT 2 METRICS:", json.dumps(plant2_metrics, indent=2))
+print("Saved separate plant models and test results to:", MODEL_DIR)
+

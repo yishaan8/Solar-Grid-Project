@@ -17,6 +17,9 @@ from telemetry_routes import router as telemetry_router
 from dashboard_routes import router as dashboard_router
 from farm_routes import router as farm_router
 from farm_telemetry_routes import router as farm_telemetry_router
+from farm_data_service import load_validated_farm_data
+from datetime import date
+from simulation_services import get_simulation_range, forecast_from_date
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -61,7 +64,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/api/simulation/range")
+def simulation_range(
+    plant: int = Query(1, ge=1, le=2),
+):
+    """Return the recorded date range available for historical simulation."""
+    try:
+        return get_simulation_range(plant)
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read simulation date range: {exc}",
+        ) from exc
 
+
+@app.get("/api/simulation/forecast")
+def simulation_forecast(
+    plant: int = Query(1, ge=1, le=2),
+    as_of: date = Query(..., description="Simulated operating date, YYYY-MM-DD"),
+    days: int = Query(3, ge=1, le=30),
+):
+    """Forecast after the selected date using only earlier generation data."""
+    try:
+        return forecast_from_date(plant, as_of, days)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Historical simulation forecast failed: {exc}",
+        ) from exc
 def _safe_float(value) -> Optional[float]:
     """Return float or None for NaN/Inf values."""
     try:
@@ -71,6 +107,15 @@ def _safe_float(value) -> Optional[float]:
         return None
     except (TypeError, ValueError):
         return None
+
+
+def _get_irradiation_by_timestamp(plant: int) -> dict:
+    """Return a timestamp -> IRRADIATION map from validated farm data."""
+    try:
+        validated_df, _ = load_validated_farm_data(plant)
+        return dict(zip(validated_df["DATE_TIME"], validated_df["IRRADIATION"]))
+    except (FileNotFoundError, ValueError):
+        return {}
 
 _test_results_cache: Optional[pd.DataFrame] = None
 _plant1_weather_cache: Optional[pd.DataFrame] = None
@@ -456,61 +501,48 @@ def history(
     plant: int = Query(1, ge=1, le=2, description="Plant number (1 or 2)"),
     limit: int = Query(200, ge=1, le=1000, description="Maximum number of records"),
 ):
-    """
-    Returns historical actual vs. predicted AC_POWER for charting.
-    Plant 1: uses pre-computed module1_test_results.csv (evaluation set).
-    Plant 2: runs Model 1 inference on Plant 2 data (cross-plant evaluation).
-    """
-    if plant == 1:
-        try:
-            df = _load_test_results()
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to load test results: {exc}")
+    """Return the same farm-level evaluation records used by /api/farm/history."""
+    filename = "farm_test_results.csv" if plant == 1 else "farm_plant2_results.csv"
+    path = MODELS_DIR / filename
+    if not path.exists():
+        raise HTTPException(status_code=503, detail="Farm evaluation results not found. Train the farm model first.")
 
-        # Take last `limit` daytime records (irradiation > 0 means daytime)
-        df_day = df[df["AC_POWER"] > 0].tail(limit)
-        if df_day.empty:
-            df_day = df.tail(limit)
-
+    try:
+        frame = pd.read_csv(path)
+        required = {"DATE_TIME", "AC_POWER", "EXPECTED_POWER", "RESIDUAL"}
+        missing = required - set(frame.columns)
+        if missing:
+            raise ValueError(f"Evaluation file is missing columns: {sorted(missing)}")
+        frame["DATE_TIME"] = pd.to_datetime(frame["DATE_TIME"], errors="coerce")
+        frame = frame.dropna(subset=["DATE_TIME", "AC_POWER", "EXPECTED_POWER"])
+        frame = frame.sort_values("DATE_TIME").tail(limit)
+        irradiation_by_ts = _get_irradiation_by_timestamp(plant)
         records = []
-        for _, row in df_day.iterrows():
-            actual = _safe_float(row["AC_POWER"])
-            predicted = _safe_float(row["EXPECTED_POWER"])
-            if actual is None or predicted is None:
-                continue
+        for _, row in frame.iterrows():
+            raw_irr = irradiation_by_ts.get(row["DATE_TIME"])
             records.append({
                 "timestamp": row["DATE_TIME"].isoformat(),
-                "actual_ac_power": round(actual, 4),
-                "predicted_ac_power": round(predicted, 4),
-                "residual": _safe_float(row.get("RESIDUAL")),
-                "abs_error": _safe_float(row.get("ABS_ERROR")),
+                "actual_ac_power": round(float(row["AC_POWER"]), 3),
+                "predicted_ac_power": round(float(row["EXPECTED_POWER"]), 3),
+                "residual": round(float(row["RESIDUAL"]), 3),
+                "irradiation": _safe_float(raw_irr),
             })
-
         return {
-            "plant": 1,
-            "source": "module1_test_results.csv (evaluation set, not live)",
-            "mode": "historical_demo",
+            "plant": plant,
+            "source": filename,
+            "mode": "historical_model_evaluation" if plant == 1 else "cross_plant_evaluation",
+            "comparable": plant == 1,
+            "unit": "AC_POWER dataset units",
             "count": len(records),
+            "period_start": records[0]["timestamp"] if records else None,
+            "period_end": records[-1]["timestamp"] if records else None,
             "records": records,
+            "note": "Plant 2 results are cross-plant evaluation using the Plant 1 model; they are not independent validation." if plant == 2 else "Plant 1 held-out evaluation records using complete 22-inverter timestamps.",
         }
-
-    else:  # plant == 2
-        # Model 1 was trained on Plant 1's single inverter (0–1.4k kW scale), while Plant 2 total generation
-        # represents 22 inverters aggregated (0–26k kW scale).
-        # Direct plant-level overlay is withheld to prevent plotting incomparable values on a distorted scale.
-        return {
-            "plant": 2,
-            "source": "Plant_2_Generation_Data.csv",
-            "mode": "historical_demo",
-            "comparable": False,
-            "reason": (
-                "Model 1 was trained specifically on Plant 1's single inverter (1BY6WEcLGh8j5v7, scale 0–1,400 kW). "
-                "Plant 2 generation in this view represents multi-inverter aggregate (scale 0–26,000 kW). "
-                "Direct model comparison is withheld to prevent plotting incomparable values on a distorted scale."
-            ),
-            "count": 0,
-            "records": [],
-        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load farm history: {exc}") from exc
 
 @app.get("/api/replay/current")
 def replay_current(
@@ -557,162 +589,144 @@ def replay_current(
         ) from exc
 
 @app.get("/api/dashboard")
-def dashboard(plant: int = Query(1, ge=1, le=2)):
+def dashboard(plant: int = Query(1, ge=1, le=2), limit: int = Query(200, ge=1, le=1000)):
+    """Owner dashboard backed by the exact farm-level evaluation records used by Forecast."""
+    filename = "farm_test_results.csv" if plant == 1 else "farm_plant2_results.csv"
+    results_path = MODELS_DIR / filename
+    metrics_path = MODELS_DIR / "farm_metrics.json"
+    if not results_path.exists():
+        raise HTTPException(status_code=503, detail="Farm evaluation results not found. Train the farm model first.")
+
     try:
-        df_test = _load_test_results()
-        # Only use rows where actual > 0 to avoid MAPE blow-up
-        df_valid = df_test[df_test["AC_POWER"] > 0].copy()
+        frame = pd.read_csv(results_path)
+        required = {"DATE_TIME", "AC_POWER", "EXPECTED_POWER", "IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"}
+        missing = required - set(frame.columns)
+        if missing:
+            raise ValueError(f"Evaluation file is missing columns: {sorted(missing)}")
+        frame["DATE_TIME"] = pd.to_datetime(frame["DATE_TIME"], errors="coerce")
+        frame = frame.dropna(subset=list(required)).sort_values("DATE_TIME")
+        frame = frame.tail(limit).copy()
+        if frame.empty:
+            raise ValueError("No valid farm evaluation records are available.")
 
-        mae = float(np.mean(np.abs(df_valid["AC_POWER"] - df_valid["EXPECTED_POWER"])))
-        rmse = float(np.sqrt(np.mean((df_valid["AC_POWER"] - df_valid["EXPECTED_POWER"]) ** 2)))
+        irradiation_by_ts = _get_irradiation_by_timestamp(plant)
+        generation_chart = []
+        for _, row in frame.iterrows():
+            raw_irr = irradiation_by_ts.get(row["DATE_TIME"])
+            if raw_irr is None and "IRRADIATION" in frame.columns:
+                raw_irr = row["IRRADIATION"]
+            generation_chart.append({
+                "timestamp": row["DATE_TIME"].isoformat(),
+                "actual_ac_power": round(float(row["AC_POWER"]), 3),
+                "predicted_ac_power": round(float(row["EXPECTED_POWER"]), 3),
+                "ac_power": round(float(row["AC_POWER"]), 3),
+                "irradiation": _safe_float(raw_irr),
+            })
 
-        model_metrics = {
-            "mae": round(mae, 4),
-            "rmse": round(rmse, 4),
-            "n_eval_records": int(len(df_test)),
-            "n_daytime_records": int(len(df_valid)),
-            "source": "module1_test_results.csv",
-            "note": "Metrics computed on Plant 1 evaluation set (daytime rows only for MAE/RMSE).",
-        }
-    except Exception as exc:
-        model_metrics = {"error": str(exc)}
-
-    # --- Recent weather (Plant 1) ---
-    try:
-        df_wea = _load_plant1_weather()
-        latest_wea = df_wea.dropna(subset=["IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"])
-        latest_wea = latest_wea[latest_wea["IRRADIATION"] > 0]
-        if latest_wea.empty:
-            latest_wea = df_wea.dropna(subset=["AMBIENT_TEMPERATURE"])
-        last_row = latest_wea.iloc[-1]
+        latest = frame.iloc[-1]
         latest_weather = {
-            "timestamp": last_row["DATE_TIME"].isoformat(),
-            "irradiation": _safe_float(last_row["IRRADIATION"]),
-            "ambient_temperature": _safe_float(last_row["AMBIENT_TEMPERATURE"]),
-            "module_temperature": _safe_float(last_row["MODULE_TEMPERATURE"]),
-        }
-    except Exception as exc:
-        latest_weather = {"error": str(exc)}
-
-    # --- Recent generation (Plant 1) ---
-    try:
-        df_test = _load_test_results()
-        df_recent = df_test[df_test["AC_POWER"] > 0].tail(48)
-        df_gen = _load_plant1_generation()
-        df_gen_agg = df_gen.groupby("DATE_TIME")["AC_POWER"].sum().reset_index()
-        total_gen_kwh = _safe_float(df_gen_agg["AC_POWER"].sum())
-
-        gen_chart = [
-            {
-                "timestamp": row["DATE_TIME"].isoformat(),
-                "actual_ac_power": round(float(row["AC_POWER"]) * 22, 1),
-                "predicted_ac_power": round(float(row["EXPECTED_POWER"]) * 22, 1),
-                "ac_power": round(float(row["AC_POWER"]) * 22, 1),
-                "inverter_actual": round(float(row["AC_POWER"]), 1),
-                "inverter_predicted": round(float(row["EXPECTED_POWER"]), 1),
-            }
-            for _, row in df_recent.iterrows()
-            if _safe_float(row["AC_POWER"]) is not None
-        ]
-    except Exception as exc:
-        gen_chart = []
-        total_gen_kwh = None
-
-    # --- Plant 2 specific data for active plant view ---
-    try:
-        df2 = _load_plant2_data()
-        latest_wea2 = df2[df2["IRRADIATION"] > 0]
-        if latest_wea2.empty:
-            latest_wea2 = df2
-        last_r2 = latest_wea2.iloc[-1]
-        p2_weather = {
-            "timestamp": last_r2["DATE_TIME"].isoformat(),
-            "irradiation": _safe_float(last_r2["IRRADIATION"]),
-            "ambient_temperature": _safe_float(last_r2["AMBIENT_TEMPERATURE"]),
-            "module_temperature": _safe_float(last_r2["MODULE_TEMPERATURE"]),
-        }
-        p2_recent = df2[df2["IRRADIATION"] > 0.05].tail(48).copy()
-        p2_preds = model.predict(_build_feature_matrix(p2_recent)) * 22 if MODEL_LOADED else np.zeros(len(p2_recent))
-        p2_gen_chart = [
-            {
-                "timestamp": row["DATE_TIME"].isoformat(),
-                "actual_ac_power": round(float(row["AC_POWER"]), 1),
-                "predicted_ac_power": round(float(pred), 1),
-                "ac_power": round(float(row["AC_POWER"]), 1),
-                "inverter_actual": round(float(row["AC_POWER"]) / 22, 1),
-                "inverter_predicted": round(float(pred) / 22, 1),
-            }
-            for (_, row), pred in zip(p2_recent.iterrows(), p2_preds)
-            if _safe_float(row["AC_POWER"]) is not None
-        ]
-        p2_total_gen = _safe_float(df2["AC_POWER"].sum())
-    except Exception as exc:
-        p2_weather = {"error": str(exc)}
-        p2_gen_chart = []
-        p2_total_gen = None
-
-    # --- Plant 2 cross-plant evaluation (vectorized, cached after first call) ---
-    plant2_metrics = None
-    if MODEL_LOADED:
-        try:
-            plant2_metrics = _get_plant2_metrics_cached()
-        except Exception as exc:
-            plant2_metrics = {"error": str(exc)}
-
-    if plant == 2:
-        active_plant_metrics = {
-            "status": "not_comparable",
-            "comparable": False,
-            "reason": (
-                "Model 1 was trained on Plant 1's single inverter (1BY6WEcLGh8j5v7, scale 0–1,400 kW). "
-                "Plant 2 generation in this primary view represents plant-wide aggregation across 22 inverters (scale 0–26,000 kW). "
-                "Direct model overlay against plant aggregate is withheld to avoid false error metrics."
-            ),
-            "inverter_benchmark": plant2_metrics,
-        }
-    else:
-        active_plant_metrics = {
-            **model_metrics,
-            "status": "evaluated",
-            "comparable": True,
+            "timestamp": latest["DATE_TIME"].isoformat(),
+            "irradiation": _safe_float(latest["IRRADIATION"]),
+            "ambient_temperature": _safe_float(latest["AMBIENT_TEMPERATURE"]),
+            "module_temperature": _safe_float(latest["MODULE_TEMPERATURE"]),
         }
 
-    active_plant_data = {
-        "plant_id": plant,
-        "name": f"Solar Farm {'B' if plant == 2 else 'A'} (Plant {plant})",
-        "latest_weather": p2_weather if plant == 2 else latest_weather,
-        "generation_chart": p2_gen_chart if plant == 2 else gen_chart,
-        "model_metrics": active_plant_metrics,
-        "total_generation": p2_total_gen if plant == 2 else total_gen_kwh,
-        "scale_note": (
-            "Plant-wide aggregate across 22 inverters (up to ~26k kW)"
-            if plant == 2
-            else "Plant-wide aggregate across 22 inverters (up to ~29k kW)"
-        ),
-    }
+        model_metrics = {}
+        if metrics_path.exists():
+            with open(metrics_path, "r", encoding="utf-8") as file:
+                all_metrics = json.load(file)
+            model_metrics = all_metrics.get("overall", {}) if plant == 1 else (all_metrics.get("plant2_cross_evaluation") or {})
+        model_metrics.update({
+            "status": "evaluated" if plant == 1 else "cross_plant_evaluation",
+            "comparable": plant == 1,
+            "training_plant": 1,
+        })
 
-    return {
-        "mode": "historical_demo",
-        "note": "No live telemetry connected. All data is from historical CSVs.",
-        "selected_plant": plant,
-        "active_plant": active_plant_data,
-        "plant1": {
-            "model_metrics": model_metrics,
+        coverage = None
+        if metrics_path.exists():
+            coverage_key = "plant1_data_coverage" if plant == 1 else "plant2_data_coverage"
+            coverage = all_metrics.get(coverage_key)
+
+        active_plant_data = {
+            "plant_id": plant,
+            "name": f"Solar Farm {'A' if plant == 1 else 'B'} (Plant {plant})",
             "latest_weather": latest_weather,
-            "generation_chart": gen_chart,
-            "total_generation_note": (
-                f"Sum of all AC_POWER readings in Plant_1_Generation_Data.csv: "
-                f"{total_gen_kwh:.2f} (units match training data)"
-                if total_gen_kwh is not None else "N/A"
-            ),
-        },
-        "plant2_cross_eval": plant2_metrics,
-        "model2_anomaly_detection": {
-            "status": "not_integrated",
-            "reason": (
-                "No Model 2 artifact (.joblib, .pkl, .h5, etc.) or interface definition "
-                "was found in the repository. Provide the trained model file and its "
-                "input/output contract to enable anomaly detection."
-            ),
-        },
-    }
+            "generation_chart": generation_chart,
+            "model_metrics": model_metrics,
+            "total_generation": None,
+            "scale_note": "Farm-level AC_POWER summed across 22 distinct inverters at complete timestamps.",
+            "source": filename,
+            "observation_count": len(generation_chart),
+            "period_start": generation_chart[0]["timestamp"],
+            "period_end": generation_chart[-1]["timestamp"],
+            "data_coverage": coverage,
+            "is_live": False,
+            "comparison_note": "Plant 2 is cross-plant evaluation using the Plant 1 model; not independently validated." if plant == 2 else "Plant 1 held-out evaluation using the farm-level model.",
+        }
+        return {
+            "mode": "historical_model_evaluation" if plant == 1 else "cross_plant_evaluation",
+            "is_live": False,
+            "note": "All values come from historical CSV evaluation records. No live IoT telemetry is connected.",
+            "selected_plant": plant,
+            "active_plant": active_plant_data,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to build farm dashboard: {exc}") from exc
+
+@app.get("/api/farm/anomalies")
+def farm_anomalies(
+    plant: int = Query(1, ge=1, le=2),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    """Return historical holdout anomaly candidates for the selected plant."""
+    path = MODELS_DIR / f"farm_plant{plant}_anomaly_results.csv"
+
+    if not path.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=f"Anomaly results for Plant {plant} not found. Train the anomaly model first.",
+        )
+
+    try:
+        frame = pd.read_csv(path)
+        required = {
+            "DATE_TIME", "AC_POWER", "IRRADIATION",
+            "ANOMALY", "ANOMALY_SCORE", "STATUS",
+        }
+        missing = required - set(frame.columns)
+        if missing:
+            raise ValueError(f"Anomaly results missing columns: {sorted(missing)}")
+
+        frame["DATE_TIME"] = pd.to_datetime(frame["DATE_TIME"], errors="coerce")
+        frame = frame.dropna(subset=["DATE_TIME"]).sort_values("DATE_TIME")
+        frame = frame[frame["ANOMALY"].astype(str).str.lower().isin(["true", "1"])]
+
+        records = []
+        for _, row in frame.tail(limit).iterrows():
+            records.append({
+                "timestamp": row["DATE_TIME"].isoformat(),
+                "actual_ac_power": _safe_float(row["AC_POWER"]),
+                "irradiation": _safe_float(row["IRRADIATION"]),
+                "anomaly_score": _safe_float(row["ANOMALY_SCORE"]),
+                "status": "anomaly_candidate",
+            })
+
+        return {
+            "plant": plant,
+            "source": path.name,
+            "mode": "historical_holdout",
+            "is_live": False,
+            "count": len(records),
+            "records": records,
+            "note": "Unsupervised anomaly candidates from historical holdout data; not confirmed faults.",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load anomaly results: {exc}",
+        ) from exc

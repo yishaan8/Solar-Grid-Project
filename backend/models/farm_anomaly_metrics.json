@@ -1,0 +1,35 @@
+{
+  "model": "Farm-level Isolation Forest",
+  "features": [
+    "IRRADIATION",
+    "AC_POWER",
+    "AMBIENT_TEMPERATURE",
+    "MODULE_TEMPERATURE",
+    "TEMP_DIFF",
+    "TIME_SIN",
+    "TIME_COS",
+    "POWER_PER_IRRADIANCE"
+  ],
+  "plant1": {
+    "plant": 1,
+    "training_records": 2445,
+    "test_records": 612,
+    "flagged_test_records": 3,
+    "flagged_test_percent": 0.49,
+    "contamination_setting": 0.02,
+    "model_file": "farm_plant1_isolation_forest.joblib",
+    "results_file": "farm_plant1_anomaly_results.csv",
+    "note": "Unsupervised anomaly flags, not confirmed faults. Review flagged records against operational context."
+  },
+  "plant2": {
+    "plant": 2,
+    "training_records": 1884,
+    "test_records": 471,
+    "flagged_test_records": 4,
+    "flagged_test_percent": 0.85,
+    "contamination_setting": 0.02,
+    "model_file": "farm_plant2_isolation_forest.joblib",
+    "results_file": "farm_plant2_anomaly_results.csv",
+    "note": "Unsupervised anomaly flags, not confirmed faults. Review flagged records against operational context."
+  }
+}

@@ -12,14 +12,14 @@ router = APIRouter(
 
 db = get_database()
 
-
 @router.post("/replay")
 def start_farm_replay(
+    plant: int = Query(1, ge=1, le=2),
     limit: int = Query(200, ge=1, le=1000),
     user: dict = Depends(get_current_user)
 ):
     try:
-        records = build_farm_replay(plant=1, limit=limit)
+        records = build_farm_replay(plant=plant, limit=limit)
 
         if not records:
             raise HTTPException(
@@ -57,8 +57,8 @@ def start_farm_replay(
         summary = {
             "replay_id": replay_id,
             "user_id": user_id,
-            "plant": 1,
-            "source": "historical_csv_replay",
+            "plant": plant,
+            "source": f"historical_csv_replay_plant{plant}",
             "model": "Farm-level Random Forest",
             "records": len(records),
             "mae": round(sum(errors) / len(errors), 3),
@@ -70,10 +70,12 @@ def start_farm_replay(
         return {
             "message": "Historical farm replay completed.",
             "replay_id": replay_id,
-            "plant": 1,
-            "source": "historical_csv_replay",
+            "plant": plant,
+            "source": summary["source"],
+            "model": summary["model"],
             "records_processed": len(records),
             "mae": summary["mae"],
+            "created_at": created_at.isoformat(),
             "results_endpoint": f"/api/farm-telemetry/replay/{replay_id}"
         }
 

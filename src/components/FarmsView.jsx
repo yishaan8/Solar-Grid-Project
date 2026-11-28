@@ -1,69 +1,123 @@
-
-import React from "react";
+import { useEffect, useState } from "react";
 import "./FarmsView.css";
 import {
   Sun,
   MapPin,
   ArrowRight,
-  Database,
-  BrainCircuit,
-  ChartNoAxesCombined,
+  CloudSun,
   Clock3,
   CheckCircle2,
-  Info,
+  Activity,
 } from "lucide-react";
+import { ResponsiveContainer, AreaChart, Area } from "recharts";
+import { fetchDashboard } from "../api/client";
 
-function FarmsView({
-  selectedPlant,
-  onSelectPlant,
-  onNavigateTab,
-}) {
-  const farms = [
-    {
-      id: 1,
-      name: "Solar Farm 01",
-      subtitle: "Plant 1",
-      location: "Karnataka, India",
-      dataset: "Plant 1 Generation & Weather Data",
-      description:
-        "Historical solar generation and weather observations used for generation analysis and Random Forest model evaluation.",
-      modelStatus: "Model comparison available",
-      modelDescription:
-        "Random Forest prediction results are available for this dataset.",
-      modelAvailable: true,
-      color: "green",
-      features: [
-        "Generation records",
-        "Weather observations",
-        "Actual vs predicted analysis",
-      ],
-    },
-    {
-      id: 2,
-      name: "Solar Farm 02",
-      subtitle: "Plant 2",
-      location: "Karnataka, India",
-      dataset: "Plant 2 Generation & Weather Data",
-      description:
-        "A second historical solar dataset for exploring generation patterns and weather conditions.",
-      modelStatus: "Prediction comparison unavailable",
-      modelDescription:
-        "The current Random Forest model was trained on Plant 1 data. Plant 2 aggregate readings are not directly comparable.",
-      modelAvailable: false,
-      color: "blue",
-      features: [
-        "Generation records",
-        "Weather observations",
-        "Historical pattern analysis",
-      ],
-    },
-  ];
+const FARM_CONFIGS = [
+  {
+    id: 1,
+    name: "Solar Farm 01",
+    subtitle: "Plant 1",
+    location: "Karnataka, India",
+    accent: "green",
+    stroke: "#16a36a",
+    fillId: "farmSparkGreen",
+  },
+  {
+    id: 2,
+    name: "Solar Farm 02",
+    subtitle: "Plant 2",
+    location: "Karnataka, India",
+    accent: "blue",
+    stroke: "#4f7df3",
+    fillId: "farmSparkBlue",
+  },
+];
+
+function formatNumber(value, digits = 0) {
+  if (value === null || value === undefined || value === "") return "—";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  return num.toLocaleString("en-IN", { maximumFractionDigits: digits });
+}
+
+function summarizePlant(dashboardData) {
+  const active = dashboardData?.active_plant;
+  if (!active) return null;
+
+  const chart = Array.isArray(active.generation_chart)
+    ? active.generation_chart
+    : [];
+
+  const series = chart
+    .map((row) => ({
+      timestamp: row.timestamp,
+      power: Number(row.actual_ac_power ?? row.ac_power),
+    }))
+    .filter((row) => row.timestamp && Number.isFinite(row.power));
+
+  const powers = series.map((item) => item.power);
+  const peakPower = powers.length > 0 ? Math.max(...powers) : null;
+  const avgPower =
+    powers.length > 0
+      ? powers.reduce((sum, val) => sum + val, 0) / powers.length
+      : null;
+
+  const weather = active.latest_weather || {};
+  const hasWeather =
+    weather.irradiation !== null &&
+    weather.irradiation !== undefined &&
+    Number.isFinite(Number(weather.irradiation));
+
+  return {
+    peakPower,
+    avgPower,
+    observationCount: active.observation_count ?? series.length,
+    hasWeather,
+    latestIrradiation: hasWeather ? Number(weather.irradiation) : null,
+    sparkline: series.slice(-48),
+  };
+}
+
+function FarmsView({ selectedPlant, onSelectPlant, onNavigateTab }) {
+  const [plantSummaries, setPlantSummaries] = useState({});
+  const [loadingSummaries, setLoadingSummaries] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPlants() {
+      setLoadingSummaries(true);
+      const [res1, res2] = await Promise.all([
+        fetchDashboard(1),
+        fetchDashboard(2),
+      ]);
+      if (cancelled) return;
+
+      setPlantSummaries({
+        1: res1.data ? summarizePlant(res1.data) : null,
+        2: res2.data ? summarizePlant(res2.data) : null,
+      });
+      setLoadingSummaries(false);
+    }
+
+    loadPlants();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSelect = (plantId) => {
     onSelectPlant?.(plantId);
   };
 
-  const handleOpenOverview = (event, plantId) => {
+  const handleCardKeyDown = (event, plantId) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleSelect(plantId);
+    }
+  };
+
+  const handleOpenDashboard = (event, plantId) => {
     event.stopPropagation();
     handleSelect(plantId);
     onNavigateTab?.("overview");
@@ -71,70 +125,52 @@ function FarmsView({
 
   return (
     <section className="farms-page">
-      {/* PAGE HEADER */}
-      <div className="farms-page-header">
+      <header className="farms-page-header">
         <div>
-          <span className="farms-eyebrow">
-            SOLARGRID / DATASETS
-          </span>
-
-          <h2>Your Solar Farms</h2>
-
+          <span className="farms-eyebrow">SOLAR ASSETS</span>
+          <h2>Your solar farms</h2>
           <p>
-            Explore historical generation and weather data across
-            your solar plants.
+            Select a plant to explore generation history, weather conditions,
+            and asset performance.
           </p>
         </div>
 
-        <div className="farms-count">
-          <Database size={17} />
-          <span>2 datasets available</span>
+        <div className="farms-status-pill">
+          <Clock3 size={14} />
+          <span>2 plants · Historical data</span>
         </div>
-      </div>
+      </header>
 
-      {/* HISTORICAL DATA NOTICE */}
-      <div className="farms-notice">
-        <Clock3 size={18} />
-
-        <div>
-          <strong>Historical demo environment</strong>
-          <span>
-            These plants use recorded CSV datasets. No live sensor
-            telemetry is connected.
-          </span>
-        </div>
-      </div>
-
-      {/* FARM CARDS */}
       <div className="farms-list">
-        {farms.map((farm) => {
-          const isSelected = selectedPlant === farm.id;
+        {FARM_CONFIGS.map((farm) => {
+          const isSelected = Number(selectedPlant) === farm.id;
+          const summary = plantSummaries[farm.id];
+          const hasSparkline = (summary?.sparkline?.length ?? 0) > 1;
 
           return (
             <article
               key={farm.id}
-              className={`farm-card ${farm.color} ${
+              className={`farm-card ${farm.accent} ${
                 isSelected ? "selected" : ""
               }`}
               onClick={() => handleSelect(farm.id)}
+              onKeyDown={(event) => handleCardKeyDown(event, farm.id)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
               aria-label={`Select ${farm.name}`}
             >
-              {/* CARD HEADER */}
               <div className="farm-card-header">
                 <div className="farm-identity">
                   <div className="farm-icon">
-                    <Sun size={23} />
+                    <Sun size={22} />
                   </div>
 
                   <div>
-                    <span className="farm-plant-label">
-                      {farm.subtitle}
-                    </span>
-
+                    <span className="farm-plant-label">{farm.subtitle}</span>
                     <h3>{farm.name}</h3>
-
                     <span className="farm-location">
-                      <MapPin size={13} />
+                      <MapPin size={12} />
                       {farm.location}
                     </span>
                   </div>
@@ -156,93 +192,113 @@ function FarmsView({
                 </span>
               </div>
 
-              {/* DESCRIPTION */}
-              <p className="farm-description">
-                {farm.description}
-              </p>
-
-              {/* DATASET */}
-              <div className="farm-dataset-box">
-                <div className="farm-dataset-icon">
-                  <Database size={18} />
+              <div className="farm-metrics-row">
+                <div className="farm-metric-cell">
+                  <span>Peak AC power</span>
+                  <strong>{formatNumber(summary?.peakPower, 0)}</strong>
                 </div>
 
-                <div>
-                  <span>Dataset source</span>
-                  <strong>{farm.dataset}</strong>
+                <div className="farm-metric-cell">
+                  <span>Avg. AC power</span>
+                  <strong>{formatNumber(summary?.avgPower, 0)}</strong>
+                </div>
+
+                <div className="farm-metric-cell">
+                  <span>Observations</span>
+                  <strong>
+                    {summary?.observationCount != null
+                      ? formatNumber(summary.observationCount, 0)
+                      : "—"}
+                  </strong>
                 </div>
               </div>
 
-              {/* FEATURES */}
-              <div className="farm-features">
-                {farm.features.map((feature) => (
-                  <span key={feature}>
-                    <CheckCircle2 size={13} />
-                    {feature}
+              <div className="farm-sparkline-box">
+                <div className="farm-sparkline-header">
+                  <span>
+                    <Activity size={13} />
+                    Generation history
                   </span>
-                ))}
-              </div>
-
-              {/* MODEL STATUS */}
-              <div
-                className={`farm-model-status ${
-                  farm.modelAvailable
-                    ? "model-available"
-                    : "model-limited"
-                }`}
-              >
-                <div className="farm-model-icon">
-                  {farm.modelAvailable ? (
-                    <BrainCircuit size={19} />
-                  ) : (
-                    <Info size={19} />
-                  )}
+                  <small>Recent recorded trend</small>
                 </div>
 
-                <div>
-                  <strong>{farm.modelStatus}</strong>
-                  <p>{farm.modelDescription}</p>
-                </div>
+                {hasSparkline ? (
+                  <div className="farm-sparkline-chart">
+                    <ResponsiveContainer width="100%" height={68}>
+                      <AreaChart
+                        data={summary.sparkline}
+                        margin={{ top: 4, right: 2, left: 2, bottom: 2 }}
+                      >
+                        <defs>
+                          <linearGradient
+                            id={farm.fillId}
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor={farm.stroke}
+                              stopOpacity={0.24}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor={farm.stroke}
+                              stopOpacity={0}
+                            />
+                          </linearGradient>
+                        </defs>
+                        <Area
+                          type="monotone"
+                          dataKey="power"
+                          stroke={farm.stroke}
+                          strokeWidth={2}
+                          fill={`url(#${farm.fillId})`}
+                          isAnimationActive={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="farm-sparkline-empty">
+                    {loadingSummaries
+                      ? "Loading generation trend…"
+                      : "Open dashboard to view generation history"}
+                  </div>
+                )}
               </div>
 
-              {/* FOOTER */}
+              <div className="farm-availability-row">
+                <span className="farm-availability-chip">
+                  <CloudSun size={14} />
+                  {summary?.hasWeather
+                    ? `Weather data available · Irradiance ${formatNumber(
+                        summary.latestIrradiation,
+                        3
+                      )}`
+                    : "Weather data available"}
+                </span>
+              </div>
+
               <div className="farm-card-footer">
                 <div className="farm-data-status">
                   <span className="farm-status-dot" />
-                  Historical dataset
+                  Historical data
                 </div>
 
                 <button
+                  type="button"
                   className="farm-open-button"
-                  onClick={(event) =>
-                    handleOpenOverview(event, farm.id)
-                  }
+                  onClick={(event) => handleOpenDashboard(event, farm.id)}
                 >
-                  Open in Overview
+                  Open dashboard
                   <ArrowRight size={15} />
                 </button>
               </div>
             </article>
           );
         })}
-      </div>
-
-      {/* DATASET INFORMATION */}
-      <div className="farms-info-card">
-        <div className="farms-info-icon">
-          <ChartNoAxesCombined size={20} />
-        </div>
-
-        <div>
-          <h3>About your datasets</h3>
-          <p>
-            SolarGrid uses historical generation and weather
-            observations to explore solar power patterns. Plant 1
-            currently supports the available Random Forest model
-            comparison. Plant 2 is available for historical data
-            exploration while model compatibility is addressed.
-          </p>
-        </div>
       </div>
     </section>
   );

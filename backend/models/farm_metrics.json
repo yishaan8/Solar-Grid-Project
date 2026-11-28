@@ -1,21 +1,74 @@
 {
   "model": "Farm-level Random Forest",
-  "training_plant": 1,
-  "training_inverters": 22,
-  "training_records": 2525,
-  "test_records": 632,
-  "daylight_records": 303,
-  "mae": 229.3542680757646,
-  "rmse": 495.1613742343597,
-  "r2": 0.9961364213139787,
-  "daylight_mae": 472.498534158708,
-  "daylight_rmse": 714.3761080231927,
-  "plant2_records": 3259,
-  "plant2_cross_evaluation": {
-    "mae": 1852.9241221101668,
-    "rmse": 4254.428273498998,
-    "r2": 0.5463990419244948,
-    "records": 3259,
-    "note": "Cross-plant evaluation, not independent model validation."
-  }
+  "model_scope": "Plant-wide AC_POWER aggregated from all 22 inverters",
+  "plant1": {
+    "plant": 1,
+    "training_records": 2445,
+    "test_records": 612,
+    "overall": {
+      "mae": 220.44015192394855,
+      "rmse": 493.50483397733973,
+      "r2": 0.9961263865427804,
+      "records": 612
+    },
+    "daylight": {
+      "mae": 470.9597126162596,
+      "rmse": 724.9911937113923,
+      "r2": 0.9888974384400265,
+      "records": 283
+    }
+  },
+  "plant2": {
+    "plant": 2,
+    "training_records": 1884,
+    "test_records": 471,
+    "overall": {
+      "mae": 732.401827244395,
+      "rmse": 1843.0108436072417,
+      "r2": 0.8943965870230326,
+      "records": 471
+    },
+    "daylight": {
+      "mae": 1514.010083260086,
+      "rmse": 2654.670963970213,
+      "r2": 0.6557643216446549,
+      "records": 227
+    },
+    "daylight_nonzero_actual": {
+      "mae": 1415.2811044436905,
+      "rmse": 2385.7761225293643,
+      "r2": 0.7130991297486955,
+      "records": 225,
+      "note": "Diagnostic subset only: daylight rows with non-zero actual generation. Not the official daylight metric."
+    }
+  },
+  "plant1_data_coverage": {
+    "plant": 1,
+    "expected_inverters": 22,
+    "distinct_inverters": 22,
+    "raw_generation_rows": 68778,
+    "raw_timestamp_count": 3158,
+    "complete_generation_timestamps": 3057,
+    "incomplete_generation_timestamps_excluded": 101,
+    "complete_timestamps_with_weather": 3057,
+    "timestamps_without_matching_weather_excluded": 0,
+    "aggregation": "sum AC_POWER across 22 distinct SOURCE_KEY values per timestamp",
+    "completeness_rule": "exactly 22 distinct inverters and matching weather observation",
+    "duplicate_inverter_rows_removed": 0
+  },
+  "plant2_data_coverage": {
+    "plant": 2,
+    "expected_inverters": 22,
+    "distinct_inverters": 22,
+    "raw_generation_rows": 67698,
+    "raw_timestamp_count": 3259,
+    "complete_generation_timestamps": 2355,
+    "incomplete_generation_timestamps_excluded": 904,
+    "complete_timestamps_with_weather": 2355,
+    "timestamps_without_matching_weather_excluded": 0,
+    "aggregation": "sum AC_POWER across 22 distinct SOURCE_KEY values per timestamp",
+    "completeness_rule": "exactly 22 distinct inverters and matching weather observation",
+    "duplicate_inverter_rows_removed": 0
+  },
+  "note": "Each plant has its own chronological 80/20 holdout. These are historical holdout results, not future-performance guarantees."
 }

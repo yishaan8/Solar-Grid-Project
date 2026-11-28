@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,ArrowUpRight,BarChart3,CloudSun,RefreshCw,Sun,Thermometer,Zap,Database,TrendingUp,
 } from "lucide-react";
@@ -6,6 +6,16 @@ import {
   ResponsiveContainer,AreaChart,Area,Line,XAxis,YAxis,CartesianGrid,Tooltip,
 } from "recharts";
 import "./OwnerDashboard.css";
+
+function formatNumber(value, digits = 2) {
+  if (value === null || value === undefined || value === "") return "—";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+
+  return number.toLocaleString("en-IN", {
+    maximumFractionDigits: digits,
+  });
+}
 
 function getNumber(...values) {
   for (const value of values) {
@@ -19,12 +29,50 @@ function getNumber(...values) {
   return null;
 }
 
-function formatNumber(value, digits = 2) {
-  if (value === null || value === undefined) return "—";
+function getTimeMatchedIrradiance(records, now = new Date()) {
+  if (!Array.isArray(records) || records.length === 0) return null;
 
-  return Number(value).toLocaleString("en-IN", {
-    maximumFractionDigits: digits,
-  });
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const intervalMinutes = 15;
+
+  let best = null;
+  let bestCompletedMinutes = -Infinity;
+  let bestTimestampMs = -Infinity;
+
+  for (const record of records) {
+    const date = new Date(record.timestamp);
+    const timestampMs = date.getTime();
+    const irradiation = Number(record.irradiation);
+
+    if (
+      Number.isNaN(timestampMs) ||
+      record.irradiation === null ||
+      record.irradiation === undefined ||
+      !Number.isFinite(irradiation)
+    ) {
+      continue;
+    }
+
+    const readingMinutes = date.getHours() * 60 + date.getMinutes();
+    const completedMinutes = readingMinutes + intervalMinutes;
+
+    // A reading becomes eligible only after its 15-minute interval completes.
+    if (completedMinutes > nowMinutes) continue;
+
+    if (
+      completedMinutes > bestCompletedMinutes ||
+      (completedMinutes === bestCompletedMinutes && timestampMs > bestTimestampMs)
+    ) {
+      bestCompletedMinutes = completedMinutes;
+      bestTimestampMs = timestampMs;
+      best = {
+        value: irradiation,
+        timestamp: record.timestamp,
+      };
+    }
+  }
+
+  return best;
 }
 
 function formatTime(timestamp) {
@@ -50,14 +98,36 @@ function DashboardSection({
   onRefresh,
   onNavigateTab,
 }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    let timeoutId;
+    let intervalId;
+
+    const tick = () => setNow(new Date());
+
+    // Align updates to minute boundaries so 15-minute interval completions update promptly.
+    const current = new Date();
+    const msUntilNextMinute =
+      (60 - current.getSeconds()) * 1000 - current.getMilliseconds();
+
+    timeoutId = setTimeout(() => {
+      tick();
+      intervalId = setInterval(tick, 60_000);
+    }, msUntilNextMinute);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
+  }, []);
+
   const plant = Number(selectedPlant);
 
   const activePlant = useMemo(() => {
     if (!dashboard) return null;
 
-    if (
-      Number(dashboard.selected_plant) !== plant
-    ) {
+    if (Number(dashboard.selected_plant) !== plant) {
       return null;
     }
 
@@ -77,6 +147,13 @@ function DashboardSection({
           item.timestamp ??
           item.date_time ??
           item.DATE_TIME,
+
+        irradiation: getNumber(
+          item.irradiation,
+          item.IRRADIATION,
+          item.weather?.irradiation,
+          item.weather?.IRRADIATION
+        ),
 
         actual: getNumber(
           item.actual_ac_power,
@@ -131,10 +208,12 @@ function DashboardSection({
     );
   }, [records]);
 
-  const irradiation = getNumber(
+  const matchedIrradiance = getTimeMatchedIrradiance(records, now);
+  const weatherIrradiation = getNumber(
     weather.irradiation,
     weather.IRRADIATION
   );
+  const irradiation = matchedIrradiance?.value ?? weatherIrradiation;
 
   const ambientTemperature = getNumber(
     weather.ambient_temperature,
@@ -147,7 +226,6 @@ function DashboardSection({
   );
 
   const chartRecords = records.slice(-70);
-
   const chartHasPrediction =
     chartRecords.length > 1 &&
     chartRecords.some(
@@ -212,8 +290,9 @@ function DashboardSection({
 
           <span>Peak recorded power</span>
 
-          <strong>{formatNumber(peakPower)}</strong>
-
+          <strong>
+            {Number(peakPower).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+          </strong>
           <small>Highest observed AC power</small>
         </article>
 
@@ -252,7 +331,7 @@ function DashboardSection({
             <Sun size={19} />
           </div>
 
-          <span>Latest irradiation</span>
+          <span>Time-matched irradiation</span>
 
           <strong>
             {formatNumber(irradiation, 3)}
@@ -300,6 +379,14 @@ function DashboardSection({
                   Expected generation
                 </span>
               )}
+
+              <span>
+                <i
+                  className="owner-legend-dot"
+                  style={{ backgroundColor: "#f59e0b" }}
+                />
+                Irradiation
+              </span>
             </div>
 
             <div className="owner-chart">
@@ -321,16 +408,8 @@ function DashboardSection({
                       x2="0"
                       y2="1"
                     >
-                      <stop
-                        offset="0%"
-                        stopColor="#16a36a"
-                        stopOpacity={0.2}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#16a36a"
-                        stopOpacity={0}
-                      />
+                      <stop offset="0%" stopColor="#16a36a" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="#16a36a" stopOpacity={0} />
                     </linearGradient>
                   </defs>
 
@@ -352,7 +431,9 @@ function DashboardSection({
                     tickLine={false}
                   />
 
+                  {/* Left axis: power */}
                   <YAxis
+                    yAxisId="power"
                     width={65}
                     tick={{
                       fontSize: 11,
@@ -368,15 +449,28 @@ function DashboardSection({
                     }
                   />
 
+                  {/* Right axis: irradiation */}
+                  <YAxis
+                    yAxisId="irradiation"
+                    orientation="right"
+                    width={65}
+                    tick={{
+                      fontSize: 11,
+                      fill: "var(--owner-muted)",
+                    }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+
                   <Tooltip
-                    labelFormatter={(value) =>
-                      new Date(value).toLocaleString("en-IN")
-                    }
+                    labelFormatter={(value) => new Date(value).toLocaleString("en-IN")}
                     formatter={(value, name) => [
-                      formatNumber(value),
+                      formatNumber(value, name === "irradiation" ? 3 : 2),
                       name === "actual"
                         ? "Actual power"
-                        : "Expected power",
+                        : name === "predicted"
+                          ? "Expected power"
+                          : "Irradiation",
                     ]}
                     contentStyle={{
                       background: "var(--owner-tooltip)",
@@ -387,6 +481,7 @@ function DashboardSection({
                   />
 
                   <Area
+                    yAxisId="power"
                     type="monotone"
                     dataKey="actual"
                     name="actual"
@@ -398,6 +493,7 @@ function DashboardSection({
 
                   {chartHasPrediction && (
                     <Line
+                      yAxisId="power"
                       type="monotone"
                       dataKey="predicted"
                       name="predicted"
@@ -407,6 +503,17 @@ function DashboardSection({
                       connectNulls
                     />
                   )}
+
+                  <Line
+                    yAxisId="irradiation"
+                    type="monotone"
+                    dataKey="irradiation"
+                    name="irradiation"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -414,14 +521,10 @@ function DashboardSection({
             <div className="owner-chart-footer">
               <span>
                 Latest observation:{" "}
-                <strong>
-                  {formatTime(latestRecord?.timestamp)}
-                </strong>
+                <strong>{formatTime(latestRecord?.timestamp)}</strong>
               </span>
 
-              <span>
-                Values shown in backend AC_POWER units
-              </span>
+              <span>Power and irradiation shown in their dataset units</span>
             </div>
           </>
         ) : (
@@ -429,8 +532,7 @@ function DashboardSection({
             <BarChart3 size={30} />
             <strong>Generation history is unavailable</strong>
             <span>
-              More recorded observations are needed to display
-              the generation trend.
+              More recorded observations are needed to display the generation trend.
             </span>
           </div>
         )}
@@ -456,7 +558,7 @@ function DashboardSection({
             <div>
               <Sun size={17} />
               <span>Irradiation</span>
-              <strong>{formatNumber(irradiation, 3)}</strong>
+              <strong>{formatNumber(weatherIrradiation ?? irradiation, 3)}</strong>
             </div>
 
             <div>
@@ -545,4 +647,5 @@ function DashboardSection({
     </section>
   );
 }
+
 export default DashboardSection;

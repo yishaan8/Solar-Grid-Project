@@ -70,3 +70,11 @@ export const fetchFarmPrediction = (payload) =>
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+export const fetchSimulationRange = (plant = 1) =>
+  apiFetch(`/api/simulation/range?plant=${encodeURIComponent(plant)}`);
+
+export const fetchSimulationForecast = (plant = 1, asOf, days = 3) =>
+  apiFetch(
+    `/api/simulation/forecast?plant=${encodeURIComponent(plant)}&as_of=${encodeURIComponent(asOf)}&days=${encodeURIComponent(days)}`
+  );
