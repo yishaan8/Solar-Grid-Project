@@ -54,6 +54,8 @@ export const fetchFarmMetrics = () =>
   apiFetch("/api/farm/metrics");
 export const fetchFarmHistory = (plant = 1, limit = 200) =>
   apiFetch(`/api/farm/history?plant=${plant}&limit=${limit}`);
+export const fetchFarmAnomalies = (plant = 1, limit = 100) =>
+  apiFetch(`/api/farm/anomalies?plant=${plant}&limit=${limit}`);
 
 // Starts a historical CSV replay and stores the results in MongoDB.
 export const startFarmReplay = (limit = 200) =>

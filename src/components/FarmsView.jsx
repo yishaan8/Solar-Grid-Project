@@ -86,7 +86,6 @@ function FarmsView({ selectedPlant, onSelectPlant, onNavigateTab }) {
     let cancelled = false;
 
     async function loadPlants() {
-      setLoadingSummaries(true);
       const [res1, res2] = await Promise.all([
         fetchDashboard(1),
         fetchDashboard(2),
@@ -125,20 +124,20 @@ function FarmsView({ selectedPlant, onSelectPlant, onNavigateTab }) {
 
   return (
     <section className="farms-page">
-      <header className="farms-page-header">
-        <div>
+      <header className="farms-hero">
+        <div className="farms-hero-copy">
           <span className="farms-eyebrow">SOLAR ASSETS</span>
-          <h2>Your solar farms</h2>
+          <h1>Your solar farms</h1>
           <p>
             Select a plant to explore generation history, weather conditions,
             and asset performance.
           </p>
+          <div className="farms-status-pill">
+            <Clock3 size={13} />
+            <span>2 plants · Historical data</span>
+          </div>
         </div>
-
-        <div className="farms-status-pill">
-          <Clock3 size={14} />
-          <span>2 plants · Historical data</span>
-        </div>
+        <div className="farms-sun" aria-hidden="true" />
       </header>
 
       <div className="farms-list">
@@ -224,7 +223,7 @@ function FarmsView({ selectedPlant, onSelectPlant, onNavigateTab }) {
 
                 {hasSparkline ? (
                   <div className="farm-sparkline-chart">
-                    <ResponsiveContainer width="100%" height={68}>
+                    <ResponsiveContainer width="100%" height={72}>
                       <AreaChart
                         data={summary.sparkline}
                         margin={{ top: 4, right: 2, left: 2, bottom: 2 }}
@@ -240,7 +239,7 @@ function FarmsView({ selectedPlant, onSelectPlant, onNavigateTab }) {
                             <stop
                               offset="0%"
                               stopColor={farm.stroke}
-                              stopOpacity={0.24}
+                              stopOpacity={0.28}
                             />
                             <stop
                               offset="100%"

@@ -44,6 +44,7 @@ function DashboardLayout() {
   const {
     dashboard,
     history,
+    anomalies,
     loading,
     error,
     refresh,
@@ -142,6 +143,7 @@ function DashboardLayout() {
             <DashboardSection
               selectedPlant={selectedPlant}
               dashboard={dashboard}
+              anomalies={anomalies}
               loading={loading}
               error={error}
               onRefresh={refresh}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Activity,ArrowUpRight,BarChart3,CloudSun,RefreshCw,Sun,Thermometer,Zap,Database,TrendingUp,
+  Activity,ArrowUpRight,BarChart3,CloudSun,RefreshCw,Sun,Thermometer,Zap,Database,TrendingUp,AlertTriangle,
 } from "lucide-react";
 import {
   ResponsiveContainer,AreaChart,Area,Line,XAxis,YAxis,CartesianGrid,Tooltip,
@@ -93,6 +93,7 @@ function formatTime(timestamp) {
 function DashboardSection({
   selectedPlant = 1,
   dashboard,
+  anomalies,
   loading,
   error,
   onRefresh,
@@ -621,6 +622,46 @@ function DashboardSection({
           </div>
         </article>
       </div>
+
+      {anomalies && Number(anomalies.plant) === plant && (
+        <article className="owner-card">
+          <div className="owner-card-heading">
+            <div>
+              <span className="owner-card-eyebrow">
+                HISTORICAL ANOMALY REVIEW
+              </span>
+              <h3>Flagged holdout observations</h3>
+              <p>
+                {anomalies.note ||
+                  "Unsupervised anomaly candidates from historical holdout data; not confirmed faults."}
+              </p>
+            </div>
+
+            <div className="owner-kpi-icon orange">
+              <AlertTriangle size={19} />
+            </div>
+          </div>
+
+          <div className="owner-info-row">
+            <span>Flagged candidates</span>
+            <strong>{formatNumber(anomalies.count, 0)}</strong>
+          </div>
+
+          <div className="owner-info-row">
+            <span>Latest flagged observation</span>
+            <strong>
+              {anomalies.records?.length
+                ? new Date(anomalies.records.at(-1).timestamp).toLocaleString("en-IN")
+                : "None"}
+            </strong>
+          </div>
+
+          <div className="owner-info-row">
+            <span>Analysis mode</span>
+            <strong>Historical holdout (not live)</strong>
+          </div>
+        </article>
+      )}
 
       <article className="owner-insight-card">
         <div className="owner-insight-icon">
